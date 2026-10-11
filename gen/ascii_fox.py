@@ -110,14 +110,16 @@ def render(objs, P, ry):
 def to_chars(lum, pal, P):
     """Siatka [(znak, klucz_koloru)] — klucz = paleta + '1'/'2' (ciemny/jasny), ' ' dla tła."""
     cols, rows, ramp, gamma, split = P["cols"], P["rows"], P["ramp"], P["gamma"], P["split"]
+    thr = P.get("thresholds")          # opcjonalnie: jawne progi jasności dla kolejnych znaków rampy (poza spacją)
     grid = []
     for y in range(rows):
         row = []
         for x in range(cols):
             L = lum[y * cols + x]
             if L < 0: row.append((" ", None)); continue
-            k = int(min(1, max(0, L)) ** gamma * (len(ramp) - 1) + 0.5)
-            row.append((ramp[k], pal[y * cols + x] + ("1" if L < split else "2")))
+            if thr: k = sum(1 for t in thr if L >= t)
+            else: k = int(min(1, max(0, L)) ** gamma * (len(ramp) - 1) + 0.5)
+            row.append((ramp[min(k, len(ramp) - 1)], pal[y * cols + x] + ("1" if L < split else "2")))
         grid.append(row)
     return grid
 
@@ -134,8 +136,8 @@ def load_variant(name):
 
 # ---------- wyjście -------------------------------------------------------------
 THEMES = {
-    "dark":  {"bg": "#0d1117", "o1": "#9a4512", "o2": "#ff8a2a", "w1": "#6b6052", "w2": "#f1e4cb", "k1": "#1a0c04", "k2": "#1a0c04"},
-    "light": {"bg": "#ffffff", "o1": "#c45a14", "o2": "#ff8a2a", "w1": "#a08c6c", "w2": "#d9c3a0", "k1": "#1a0c04", "k2": "#1a0c04"},
+    "dark":  {"bg": "#0d1117", "o1": "#b5581a", "o2": "#ff8a2a", "w1": "#9a8c78", "w2": "#f1e4cb", "k1": "#1a0c04", "k2": "#1a0c04"},
+    "light": {"bg": "#ffffff", "o1": "#a8440c", "o2": "#f0761a", "w1": "#7d6648", "w2": "#c49a62", "k1": "#1a0c04", "k2": "#1a0c04"},
 }
 
 def esc(s): return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -163,7 +165,7 @@ def build_svg(variant, out, theme="dark"):
             if buf: runs.append((cur, "".join(buf)))
             parts = "".join(f'<tspan fill="{th[key]}">{esc(txt)}</tspan>' if key else f'<tspan fill="none">{esc(txt)}</tspan>' for key, txt in runs)
             # textLength + preserve: każda linia ma dokładnie cols*CW szerokości niezależnie od czcionki
-            g.append(f'<text x="{PAD}" y="{PAD + (yi + 0.8) * LH:.1f}" xml:space="preserve" textLength="{cols * CW:.1f}" lengthAdjust="spacing">{parts}</text>')
+            g.append(f'<text x="{PAD}" y="{PAD + (yi + 0.8) * LH:.1f}" xml:space="preserve" textLength="{cols * CW:.1f}" lengthAdjust="spacingAndGlyphs">{parts}</text>')
         g.append("</g>")
     g.append("</svg>")
     svg = "\n".join(g)
